@@ -1,7 +1,7 @@
 ﻿using Terraria;
 using Terraria.ID;
 using TerrariaApi.Server;
-using TShockAPI;
+using OTAPI;
 
 namespace ImmediatePhase2
 {
@@ -14,7 +14,7 @@ namespace ImmediatePhase2
 
         public override string Name => "ImmediatePhase2";
 
-        public override Version Version => new(1, 0, 0);
+        public override Version Version => new(1, 0, 1);
 
         public ImmediatePhase2(Main game) : base(game)
         {
@@ -23,9 +23,9 @@ namespace ImmediatePhase2
         public override void Initialize()
         {
             ServerApi.Hooks.GameUpdate.Register(this, OnGameUpdate);
+            Hooks.NPC.Spawn += OnNPCSpawn;
         }
-
-        private static void OnNPCSpawn(object? sender, OTAPI.Hooks.NPC.SpawnEventArgs args)
+        private static void OnNPCSpawn(object? sender, Hooks.NPC.SpawnEventArgs args)
         {
             NPC npc = Main.npc[args.Index];
             if (npc.boss && npc.active)
@@ -33,16 +33,16 @@ namespace ImmediatePhase2
                 switch (npc.type)
                 {
                     case NPCID.EyeofCthulhu:
-                        npc.ai[0] = 3f;
+                        npc.ai[0] = 1f;
                         NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, null, npc.whoAmI);
                         break;
                     case NPCID.Retinazer:
-                        npc.ai[0] = 3f;
+                        npc.ai[0] = 1f;
                         npc.ai[1] = npc.ai[2] = npc.ai[3] = 0.0f;
                         NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, null, npc.whoAmI);
                         break;
                     case NPCID.Spazmatism:
-                        npc.ai[0] = 3f;
+                        npc.ai[0] = 1f;
                         npc.ai[1] = npc.ai[2] = npc.ai[3] = 0.0f;
                         NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, null, npc.whoAmI);
                         break;
@@ -60,6 +60,14 @@ namespace ImmediatePhase2
             {
                 if (npc.boss && npc.active)
                 {
+                    if (npc.type == NPCID.Retinazer || npc.type == NPCID.Spazmatism || npc.type == NPCID.EyeofCthulhu)
+                    {
+                        if (npc.ai[0] == 1 || npc.ai[0] == 2) //during transition between phase 1 and phase 2
+                            npc.immortal = true;
+                        else
+                            npc.immortal = false;
+                        NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, null, npc.whoAmI);
+                    }
                     if (npc.type == NPCID.DukeFishron) //had to put Duke here because of his long intro that i could not modify his ai immediately
                     {
                         if (npc.ai[0] == 0f)
@@ -77,6 +85,16 @@ namespace ImmediatePhase2
                     }
                 }
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Hooks.NPC.Spawn -= OnNPCSpawn;
+                ServerApi.Hooks.GameUpdate.Deregister(this, OnGameUpdate);
+            }
+            base.Dispose(disposing);
         }
     }
 }
